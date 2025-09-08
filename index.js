@@ -1,10 +1,25 @@
-const functions = require("firebase-functions");
+const express = require("express");
+const cors = require("cors");
 const admin = require("firebase-admin");
-admin.initializeApp();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Firebase Admin initialize
+const serviceAccount = require("./serviceAccountKey.json"); // ডাউনলোড করা Firebase Admin SDK key
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 const db = admin.firestore();
 
-// ✅ Get tasks list
-exports.getTasks = functions.https.onRequest(async (req, res) => {
+// API routes
+app.get("/", (req, res) => {
+  res.send("Backend is running on Render 🚀");
+});
+
+// Get tasks
+app.get("/getTasks", async (req, res) => {
   try {
     const snapshot = await db.collection("tasks").get();
     const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -14,34 +29,30 @@ exports.getTasks = functions.https.onRequest(async (req, res) => {
   }
 });
 
-// ✅ Claim task (add points)
-exports.claimTask = functions.https.onRequest(async (req, res) => {
-  const { uid, taskId } = req.body;
-  if (!uid || !taskId) return res.status(400).json({ error: "Invalid data" });
-
-  const userRef = db.collection("users").doc(uid);
-  const userDoc = await userRef.get();
-  if (!userDoc.exists) return res.status(404).json({ error: "User not found" });
-
-  const points = (userDoc.data().points || 0) + 10; // fixed reward demo
-  await userRef.update({ points });
-  res.json({ success: true, newPoints: points });
+// Claim task
+app.post("/claimTask", async (req, res) => {
+  const { userId, taskId } = req.body;
+  try {
+    await db.collection("claims").add({ userId, taskId, createdAt: Date.now() });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// ✅ Withdraw request
-exports.withdraw = functions.https.onRequest(async (req, res) => {
-  const { uid, method, account, points } = req.body;
-  if (!uid || !method || !account || !points) return res.status(400).json({ error: "Invalid data" });
+// Withdraw
+app.post("/withdraw", async (req, res) => {
+  const { userId, amount, method } = req.body;
+  try {
+    await db.collection("withdrawals").add({ userId, amount, method, status: "pending", createdAt: Date.now() });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-  const request = {
-    uid,
-    method,
-    account,
-    points,
-    status: "pending",
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
-  };
-
-  await db.collection("withdrawRequests").add(request);
-  res.json({ success: true, message: "Withdraw request submitted" });
+// Render এ server চালানো
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
