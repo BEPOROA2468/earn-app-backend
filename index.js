@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 // Firebase Admin initialize
-const serviceAccount = require("./serviceAccountKey.json"); // ডাউনলোড করা Firebase Admin SDK key
+const serviceAccount = require("./serviceAccountKey.json"); // 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
@@ -51,7 +51,7 @@ app.post("/withdraw", async (req, res) => {
   }
 });
 
-// Render এ server চালানো
+// Render 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
